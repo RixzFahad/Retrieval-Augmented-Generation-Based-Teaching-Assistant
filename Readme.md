@@ -157,7 +157,7 @@ python rag_pipeline.py
 ---
 
 ## 👨‍💻 Author
-
+Mentor - @CodeWithHarry - Harish ALi Khan
 Fahad Khan (Rixz)  
-Aspiring Data Scientist | AI Engineer  
+Aspiring Data Scientist | AI Engineer | Data Analsyt
 Building practical AI systems with real-world applications.
