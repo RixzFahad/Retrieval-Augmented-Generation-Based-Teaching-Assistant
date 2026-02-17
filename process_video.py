@@ -1,29 +1,60 @@
+import whisper
+import json
 import os
-import subprocess
+import torch
 
-video_folder = "videos"
-output_folder = "audio"
+AUDIO_DIR = "audio"
+CHUNK_DIR = "chunks"
 
-os.makedirs(output_folder, exist_ok=True)
+# Create chunks folder if not exists
+os.makedirs(CHUNK_DIR, exist_ok=True)
 
-files = os.listdir(video_folder)
+# ✅ Detect device (GPU or CPU)
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", device)
 
-for file in files:
-    if file.endswith(".mp4"):
-        tutorial_number = file.replace("Day", "").replace(".mp4", "")
-        file_name = file.replace(".mp4", "")
+# ✅ Load model ONCE and move to device
+model = whisper.load_model("medium")
+model = model.to(device)
 
-        input_path = os.path.join(video_folder, file)
-        output_path = os.path.join(output_folder, f"{tutorial_number}_{file_name}.mp3")
+# Get mp3 files only
+audios = [f for f in os.listdir(AUDIO_DIR) if f.lower().endswith(".mp3")]
+audios.sort()
 
-        print(f"Converting {file} → {output_path}")
+for audio in audios:
+    file_path = os.path.join(AUDIO_DIR, audio)
 
-        subprocess.run([
-            "ffmpeg",
-            "-i", input_path,
-            "-q:a", "0",
-            "-map", "a",
-            output_path
-        ])
+    name_no_ext = os.path.splitext(audio)[0]
 
-print("✅ All videos converted successfully!")
+    if "_" in name_no_ext:
+        number, title = name_no_ext.split("_", 1)
+    else:
+        number, title = "", name_no_ext
+
+    print("Processing:", audio)
+
+    result = model.transcribe(
+        audio=file_path,
+        language="hi",
+        task="translate",
+        word_timestamps=False,
+        fp16=True if device == "cuda" else False  # ✅ GPU optimization
+    )
+
+    chunks = []
+    for segment in result["segments"]:
+        chunks.append({
+            "start": segment["start"],
+            "end": segment["end"],
+            "text": segment["text"]
+        })
+
+    # Save each file separately inside chunks folder
+    output_path = os.path.join(CHUNK_DIR, f"{name_no_ext}.json")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(chunks, f, ensure_ascii=False, indent=2)
+
+    print("Saved:", output_path)
+
+print("✅ All files processed successfully!")
